@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>童軍背包大師 - 限時挑戰版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .no-select { user-select: none; -webkit-user-select: none; }
+        .hidden-canvas { display: none; }
+        
+        @keyframes pulse-red {
+            0%, 100% { color: #ffffff; border-color: #57534e; }
+            50% { color: #ef4444; border-color: #ef4444; }
+        }
+        .timer-urgent {
+            animation: pulse-red 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-stone-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- 內建圖示組件 ---
+        const Icon = ({ children, size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Icons = {
+            Flashlight: (p) => <Icon {...p}><path d="M18 6c0 2-3 3-3 3l-6 10-4-4 10-6c0 0 1-3 3-3s3 1 3 3z"/><line x1="6" y1="12" x2="2" y2="16"/></Icon>,
+            Utensils: (p) => <Icon {...p}><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></Icon>,
+            Shirt: (p) => <Icon {...p}><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></Icon>,
+            CloudRain: (p) => <Icon {...p}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></Icon>,
+            ShoppingBag: (p) => <Icon {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></Icon>,
+            Heart: (p) => <Icon {...p}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></Icon>,
+            RotateCcw: (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></Icon>,
+            CheckCircle: (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>,
+            XCircle: (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></Icon>,
+            Download: (p) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Icon>,
+            Coffee: (p) => <Icon {...p}><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></Icon>,
+            Footprints: (p) => <Icon {...p}><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 11 3.8 11 8c0 1.25-1.25 2-1.25 4.5.03 2.19 1.12 3.38 1.15 4.5.04 1.24-1.25 3-2.9 3-2.3 0-3.03-1.55-3.5-3.5a14.54 14.54 0 0 0-1.5-2.5Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 13 7.8 13 12c0 1.25 1.25 2 1.25 4.5-.03 2.19-1.12 3.38-1.15 4.5-.04 1.24 1.25 3 2.9 3 2.3 0 3.03-1.55 3.5-3.5a14.54 14.54 0 0 0 1.5-2.5Z"/></Icon>,
+            Battery: (p) => <Icon {...p}><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></Icon>,
+            Pencil: (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></Icon>,
+            Book: (p) => <Icon {...p}><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></Icon>,
+            Pill: (p) => <Icon {...p}><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></Icon>,
+            Droplet: (p) => <Icon {...p}><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></Icon>,
+            Smartphone: (p) => <Icon {...p}><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></Icon>,
+            Scissors: (p) => <Icon {...p}><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></Icon>,
+            Moon: (p) => <Icon {...p}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></Icon>,
+            Clock: (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Icon>,
+        };
+
+        const { 
+            Flashlight, Utensils, Shirt, CloudRain, ShoppingBag, Heart, RotateCcw, 
+            CheckCircle, XCircle, Download, Coffee, Footprints, Battery, Pencil, 
+            Book, Pill, Droplet, Smartphone, Scissors, Moon, Clock
+        } = Icons;
+
+        // --- 遊戲資料設定 ---
+        const ZONES = {
+            LID: { id: 'lid', label: '頂袋 (雜物)' },
+            MAIN_TOP: { id: 'main_top', label: '主袋上層 (寢具)' },
+            MAIN_MID: { id: 'main_mid', label: '主袋中層 (衣物)' },
+            MAIN_BOT: { id: 'main_bot', label: '主袋下層 (盥洗)' },
+            POCKET: { id: 'pocket', label: '側袋 (餐具/鞋)' },
+        };
+
+        const ALL_ITEMS_POOL = [
+            { id: 1, name: '針線包', zone: 'lid', icon: <Scissors size={24} /> },
+            { id: 2, name: '個人用藥', zone: 'lid', icon: <Pill size={24} /> },
+            { id: 3, name: '筆', zone: 'lid', icon: <Pencil size={24} /> },
+            { id: 4, name: '手電筒', zone: 'lid', icon: <Flashlight size={24} /> },
+            { id: 5, name: '筆記本', zone: 'lid', icon: <Book size={24} /> },
+            { id: 6, name: '衛生紙', zone: 'lid', icon: <div className="font-bold text-stone-600">🧻</div> },
+            { id: 7, name: '雨衣', zone: 'lid', icon: <CloudRain size={24} /> },
+            { id: 8, name: '手機', zone: 'lid', icon: <Smartphone size={24} /> },
+            { id: 9, name: '行動電源', zone: 'lid', icon: <Battery size={24} /> },
+            { id: 10, name: '湯匙', zone: 'pocket', icon: <Utensils size={24} /> },
+            { id: 11, name: '碗', zone: 'pocket', icon: <div className="text-stone-600 font-bold">🥣</div> },
+            { id: 12, name: '水壺', zone: 'pocket', icon: <div className="text-blue-600 font-bold">💧</div> },
+            { id: 13, name: '筷子', zone: 'pocket', icon: <div className="text-stone-800 font-bold">🥢</div> },
+            { id: 14, name: '球鞋', zone: 'pocket', icon: <div className="text-stone-800 font-bold">👟</div> },
+            { id: 15, name: '拖鞋', zone: 'pocket', icon: <Footprints size={24} /> },
+            { id: 16, name: '雨鞋或鞋套', zone: 'pocket', icon: <div className="text-yellow-600 font-bold">👢</div> },
+            { id: 17, name: '睡墊', zone: 'main_top', icon: <div className="w-6 h-4 bg-green-300 rounded border border-green-600"></div> },
+            { id: 18, name: '睡袋或毛毯', zone: 'main_top', icon: <ShoppingBag size={24} className="text-blue-600"/> },
+            { id: 19, name: '換洗衣物', zone: 'main_mid', icon: <Shirt size={24} /> },
+            { id: 20, name: '襪子', zone: 'main_mid', icon: <div className="text-stone-500 font-bold">🧦</div> },
+            { id: 21, name: '禦寒衣物', zone: 'main_mid', icon: <div className="text-blue-800 font-bold">🧥</div> },
+            { id: 22, name: '睡衣褲', zone: 'main_mid', icon: <Moon size={24} /> },
+            { id: 23, name: '沐浴乳', zone: 'main_bot', icon: <Droplet size={24} /> },
+            { id: 24, name: '毛巾', zone: 'main_bot', icon: <div className="w-5 h-6 bg-yellow-100 border border-yellow-400"></div> },
+            { id: 25, name: '牙膏', zone: 'main_bot', icon: <div className="text-green-400 font-bold">🧴</div> },
+            { id: 26, name: '牙刷', zone: 'main_bot', icon: <div className="text-blue-400 font-bold">🪥</div> },
+        ];
+
+        const MAX_HEALTH = 3;
+        const ITEMS_TO_PLAY = 15;
+        const GAME_DURATION = 90; // 90 seconds
+
+        const MangaBackpack = ({ onZoneClick, onDrop, onDragOver, selectedZone, packedItems }) => {
+            const getZoneStyle = (zoneId) => {
+                const isSelected = selectedZone === zoneId;
+                const hasItems = packedItems.some(i => i.zone === zoneId);
+                let baseClass = "transition-all duration-300 cursor-pointer stroke-[3px] stroke-stone-900";
+                
+                if (hasItems) return `${baseClass} fill-stone-200`;
+                return `${baseClass} fill-white hover:fill-stone-100`;
+            };
+
+            const renderDots = (zoneId, colorClass, startX, startY, gridWidth = 15) => {
+                const itemsInZone = packedItems.filter(i => i.zone === zoneId);
+                return (
+                    <g transform={`translate(${startX}, ${startY})`}>
+                        {itemsInZone.map((item, idx) => (
+                        <circle 
+                            key={idx} 
+                            cx={(idx % 4) * gridWidth} 
+                            cy={Math.floor(idx / 4) * gridWidth} 
+                            r="4" 
+                            className={`${colorClass} stroke-none opacity-80`} 
+                        />
+                        ))}
+                    </g>
+                );
+            };
+
+            return (
+                <svg viewBox="0 0 400 600" className="w-full h-full drop-shadow-2xl no-select">
+                    <defs>
+                        <pattern id="dotPattern" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+                        <circle cx="1" cy="1" r="1" className="text-stone-200 fill-current" />
+                        </pattern>
+                    </defs>
+
+                    <path d="M120 100 Q 100 200 80 400" className="stroke-stone-800 stroke-[8px] fill-none opacity-80" />
+                    <path d="M280 100 Q 300 200 320 400" className="stroke-stone-800 stroke-[8px] fill-none opacity-80" />
+
+                    {/* 1. 頂袋 (Lid) */}
+                    <g onClick={() => onZoneClick('lid')} onDragOver={onDragOver} onDrop={(e) => onDrop(e, 'lid')}>
+                        <path d="M100 80 C 100 30, 300 30, 300 80 L 320 160 C 320 190, 80 190, 80 160 Z" className={getZoneStyle('lid')} />
+                        <text x="200" y="110" textAnchor="middle" className="font-bold text-stone-400 pointer-events-none select-none text-lg font-serif">TOP</text>
+                        {renderDots('lid', 'fill-purple-500', 170, 120)}
+                    </g>
+
+                    {/* 2. 主袋上層 */}
+                    <g onClick={() => onZoneClick('main_top')} onDragOver={onDragOver} onDrop={(e) => onDrop(e, 'main_top')}>
+                        <path d="M82 160 L 318 160 L 322 280 L 78 280 Z" className={getZoneStyle('main_top')} />
+                        <text x="200" y="220" textAnchor="middle" className="font-bold text-stone-400 pointer-events-none select-none text-xl tracking-widest font-serif opacity-40">UPPER</text>
+                        {renderDots('main_top', 'fill-blue-500', 175, 200)}
+                    </g>
+
+                    {/* 3. 主袋中層 */}
+                    <g onClick={() => onZoneClick('main_mid')} onDragOver={onDragOver} onDrop={(e) => onDrop(e, 'main_mid')}>
+                        <path d="M78 280 L 322 280 L 326 400 L 74 400 Z" className={getZoneStyle('main_mid')} />
+                        <text x="200" y="340" textAnchor="middle" className="font-bold text-stone-400 pointer-events-none select-none text-xl tracking-widest font-serif opacity-40">MIDDLE</text>
+                        {renderDots('main_mid', 'fill-yellow-500', 175, 320)}
+                    </g>
+
+                    {/* 4. 主袋下層 */}
+                    <g onClick={() => onZoneClick('main_bot')} onDragOver={onDragOver} onDrop={(e) => onDrop(e, 'main_bot')}>
+                        <path d="M74 400 L 326 400 L 325 530 C 325 560, 75 560, 75 530 Z" className={getZoneStyle('main_bot')} />
+                        <text x="200" y="480" textAnchor="middle" className="font-bold text-stone-400 pointer-events-none select-none text-xl tracking-widest font-serif opacity-40">LOWER</text>
+                        {renderDots('main_bot', 'fill-red-500', 175, 460)}
+                    </g>
+
+                    {/* 5. 側袋 */}
+                    <g onClick={() => onZoneClick('pocket')} onDragOver={onDragOver} onDrop={(e) => onDrop(e, 'pocket')}>
+                        <path d="M335 250 L 380 250 L 380 450 L 335 450 Z" className={getZoneStyle('pocket')} />
+                        <path d="M65 250 L 20 250 L 20 450 L 65 450 Z" className={getZoneStyle('pocket')} />
+                        <text x="358" y="350" textAnchor="middle" className="font-bold text-stone-400 pointer-events-none select-none text-xs [writing-mode:vertical-lr]">SIDE</text>
+                        <text x="42" y="350" textAnchor="middle" className="font-bold text-stone-400 pointer-events-none select-none text-xs [writing-mode:vertical-lr] rotate-180">SIDE</text>
+                        
+                        <g transform="translate(355, 380)">
+                        {packedItems.filter(i => i.zone === 'pocket').slice(0,3).map((item, idx) => (
+                            <circle key={idx} cx="0" cy={idx * 15} r="4" className="fill-orange-500 stroke-none opacity-80" />
+                        ))}
+                        </g>
+                        <g transform="translate(45, 380)">
+                        {packedItems.filter(i => i.zone === 'pocket').slice(3,7).map((item, idx) => (
+                            <circle key={idx} cx="0" cy={idx * 15} r="4" className="fill-orange-500 stroke-none opacity-80" />
+                        ))}
+                        </g>
+                    </g>
+                </svg>
+            );
+        };
+
+        const ScoutPackingGame = () => {
+            const [gameState, setGameState] = useState('intro');
+            const [items, setItems] = useState([]);
+            const [packedItems, setPackedItems] = useState([]);
+            const [score, setScore] = useState(0);
+            const [health, setHealth] = useState(MAX_HEALTH);
+            const [selectedItem, setSelectedItem] = useState(null);
+            const [message, setMessage] = useState(null);
+            const [studentName, setStudentName] = useState('');
+            const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+            const [timeBonus, setTimeBonus] = useState(0);
+            
+            const canvasRef = useRef(null);
+            
+            // 計時器邏輯
+            useEffect(() => {
+                let timer;
+                if (gameState === 'playing' && timeLeft > 0) {
+                    timer = setInterval(() => {
+                        setTimeLeft((prev) => prev - 1);
+                    }, 1000);
+                } else if (timeLeft === 0 && gameState === 'playing') {
+                    // 時間到，遊戲結束
+                    showMessage('時間到！', 'error');
+                    setGameState('finished');
+                }
+                return () => clearInterval(timer);
+            }, [gameState, timeLeft]);
+
+            const selectGameItems = () => {
+                const zones = ['lid', 'main_top', 'main_mid', 'main_bot', 'pocket'];
+                let selectedItems = [];
+                let usedIds = new Set();
+
+                zones.forEach(zone => {
+                    const zoneItems = ALL_ITEMS_POOL.filter(i => i.zone === zone);
+                    const maxPick = Math.min(zoneItems.length, 2);
+                    const countToPick = Math.max(1, Math.floor(Math.random() * maxPick) + 1);
+                    
+                    const shuffledZoneItems = [...zoneItems].sort(() => Math.random() - 0.5);
+                    
+                    for(let i=0; i<countToPick && i < shuffledZoneItems.length; i++) {
+                        selectedItems.push(shuffledZoneItems[i]);
+                        usedIds.add(shuffledZoneItems[i].id);
+                    }
+                });
+
+                let needed = ITEMS_TO_PLAY - selectedItems.length;
+
+                if (needed > 0) {
+                    const remainingPool = ALL_ITEMS_POOL.filter(i => !usedIds.has(i.id));
+                    const shuffledRemaining = remainingPool.sort(() => Math.random() - 0.5);
+                    selectedItems = [...selectedItems, ...shuffledRemaining.slice(0, needed)];
+                }
+
+                return selectedItems.sort(() => Math.random() - 0.5);
+            };
+
+            const startGame = () => {
+                const gameItems = selectGameItems();
+                setItems(gameItems);
+                setPackedItems([]);
+                setScore(0);
+                setHealth(MAX_HEALTH);
+                setGameState('playing');
+                setSelectedItem(null);
+                setMessage(null);
+                setTimeLeft(GAME_DURATION); // 重置時間
+                setTimeBonus(0); // 重置時間紅利
+            };
+
+            const handleItemClick = (item) => {
+                if (selectedItem?.id === item.id) {
+                    setSelectedItem(null);
+                } else {
+                    setSelectedItem(item);
+                }
+            };
+
+            const handleZoneClick = (zoneId) => {
+                if (!selectedItem) return;
+                if (selectedItem.zone === zoneId) {
+                    handleSuccess(selectedItem, zoneId);
+                } else {
+                    handleFailure(selectedItem, zoneId);
+                }
+            };
+
+            const handleSuccess = (item, zoneId) => {
+                const itemScore = 100;
+                setScore(prev => prev + itemScore);
+                
+                setPackedItems(prev => [...prev, item]);
+                const remainingItems = items.filter(i => i.id !== item.id);
+                setItems(remainingItems);
+                setSelectedItem(null);
+                
+                showMessage('正確！', 'success');
+                
+                if (remainingItems.length === 0) {
+                    // 遊戲完成，計算時間紅利
+                    const bonus = timeLeft * 10;
+                    setTimeBonus(bonus);
+                    setScore(prev => prev + bonus); // 加總到總分
+                    setTimeout(() => setGameState('finished'), 1000);
+                }
+            };
+
+            const handleFailure = (item, zoneId) => {
+                setHealth(prev => {
+                    const newHealth = prev - 1;
+                    if (newHealth <= 0) {
+                        setTimeout(() => setGameState('finished'), 1000);
+                    }
+                    return newHealth;
+                });
+                setScore(prev => Math.max(0, prev - 30));
+                setSelectedItem(null);
+                showMessage(`位置錯誤！再想一想。`, 'error');
+            };
+
+            const showMessage = (text, type) => {
+                setMessage({ text, type });
+                setTimeout(() => setMessage(null), 1500);
+            };
+
+            const getFeedback = () => {
+                if (health <= 0) return { title: '打包見習生', rank: 'C', color: 'text-stone-500' };
+                if (score >= (ITEMS_TO_PLAY * 100 * 0.9) + 200) return { title: '傳說級打包王', rank: 'SS', color: 'text-yellow-600' };
+                if (score >= (ITEMS_TO_PLAY * 100 * 0.7)) return { title: '童軍打包大師', rank: 'S', color: 'text-red-600' };
+                if (score >= (ITEMS_TO_PLAY * 100 * 0.5)) return { title: '精英童軍', rank: 'A', color: 'text-green-600' };
+                return { title: '合格童軍', rank: 'B', color: 'text-blue-600' };
+            };
+
+            const downloadCertificate = () => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+
+                // Background
+                ctx.fillStyle = '#fafaf9'; // stone-50
+                ctx.fillRect(0, 0, width, height);
+                
+                // Border
+                ctx.strokeStyle = '#1c1917'; // stone-900
+                ctx.lineWidth = 8;
+                ctx.strokeRect(20, 20, width - 40, height - 40);
+
+                // Title
+                ctx.fillStyle = '#1c1917';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 48px serif';
+                ctx.fillText('童軍背包打包技能認證', width / 2, 100);
+                
+                // Line
+                ctx.beginPath();
+                ctx.moveTo(100, 130);
+                ctx.lineTo(width-100, 130);
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Student Name
+                ctx.font = '32px sans-serif';
+                ctx.fillText('茲證明學員', width / 2, 180);
+                
+                ctx.font = 'bold 64px sans-serif';
+                ctx.fillStyle = '#d97706'; // amber-600
+                ctx.fillText(studentName, width / 2, 260);
+                
+                // Score
+                ctx.fillStyle = '#1c1917';
+                ctx.font = '32px sans-serif';
+                ctx.fillText(`總分: ${score}`, width / 2, 340);
+                ctx.font = '24px sans-serif';
+                ctx.fillStyle = '#78716c';
+                if (timeBonus > 0) {
+                     ctx.fillText(`(含時間紅利 +${timeBonus})`, width / 2, 380);
+                }
+                
+                // Rank Circle
+                const feedback = getFeedback();
+                ctx.beginPath();
+                ctx.arc(width/2, 450, 60, 0, 2 * Math.PI);
+                ctx.fillStyle = '#fef3c7'; // amber-100
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#d97706';
+                ctx.stroke();
+
+                // Rank Text
+                ctx.font = 'bold 60px sans-serif';
+                ctx.fillStyle = '#b45309'; // amber-700
+                ctx.textBaseline = 'middle';
+                ctx.fillText(feedback.rank, width / 2, 450);
+                ctx.textBaseline = 'alphabetic'; // reset
+
+                // Title of Rank
+                ctx.font = 'bold 32px sans-serif';
+                ctx.fillStyle = '#78716c';
+                ctx.fillText(feedback.title, width / 2, 550);
+                
+                // Date
+                ctx.font = '20px monospace';
+                ctx.fillStyle = '#a8a29e';
+                ctx.textAlign = 'right';
+                ctx.fillText(`DATE: ${new Date().toLocaleDateString()}`, width - 40, height - 40);
+
+                // Trigger Download
+                try {
+                    const link = document.createElement('a');
+                    link.download = `${studentName || 'Scout'}_Certificate.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (e) {
+                    console.error("Download failed", e);
+                    alert("下載失敗，請截圖保存");
+                }
+            };
+
+            // Main Render
+            return (
+                <div className="h-screen w-full bg-stone-100 font-sans text-stone-800 flex flex-col overflow-hidden">
+                    {/* Header */}
+                    <header className="flex-none bg-stone-900 text-stone-100 p-2 flex justify-between items-center z-20 shadow-md">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-yellow-500 text-black px-1.5 py-0.5 rounded text-sm font-bold border border-black">SCOUT</div>
+                            <h1 className="text-lg font-black italic tracking-tighter">BACKPACK MASTER</h1>
+                        </div>
+                        {gameState === 'playing' && (
+                            <div className="flex gap-3 items-center">
+                                {/* Timer Display */}
+                                <div className={`flex items-center gap-1 bg-stone-800 px-2 py-1 rounded border border-stone-600 transition-all ${timeLeft < 10 ? 'timer-urgent border-red-500' : ''}`}>
+                                    <Clock size={20} className={timeLeft < 10 ? "text-red-500" : "text-stone-400"} />
+                                    <span className={`font-mono text-xl leading-none ${timeLeft < 10 ? "text-red-500" : "text-white"}`}>
+                                        {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1 bg-stone-800 px-2 py-1 rounded border border-stone-600">
+                                    <span className="font-mono text-xl text-yellow-400 leading-none">{score}</span>
+                                </div>
+                                <div className="flex items-center gap-0.5">
+                                    {[...Array(MAX_HEALTH)].map((_, i) => (
+                                        <Heart key={i} size={20} className={`${i < health ? 'fill-red-600 text-red-600' : 'text-stone-700'} transition-all`} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </header>
+
+                    {/* Message */}
+                    {message && (
+                        <div className={`fixed top-14 left-1/2 transform -translate-x-1/2 z-50 px-6 py-2 rounded-full shadow-xl font-bold text-lg border-2 border-white animate-bounce
+                            ${message.type === 'success' ? 'bg-green-500 text-white' : 
+                            message.type === 'error' ? 'bg-red-500 text-white' : 
+                            'bg-blue-500 text-white'}`}>
+                            {message.text}
+                        </div>
+                    )}
+
+                    {/* Main */}
+                    <main className="flex-1 flex flex-col relative overflow-hidden">
+                        {gameState === 'intro' && (
+                            <div className="absolute inset-0 z-30 bg-stone-100/90 flex items-center justify-center p-4">
+                                <div className="bg-white border-4 border-stone-900 p-6 max-w-sm w-full shadow-[8px_8px_0px_0px_rgba(28,25,23,1)]">
+                                    <h2 className="text-3xl font-black mb-4 text-stone-900 uppercase italic">Mission Start</h2>
+                                    <div className="space-y-3 mb-6 text-base font-bold text-stone-600">
+                                        <p className="flex items-center gap-2"><Clock size={18} className="text-blue-600"/> 限時 90 秒挑戰</p>
+                                        <p className="flex items-center gap-2"><CheckCircle size={18} className="text-green-600"/> 整理 15 項隨機裝備</p>
+                                        <p className="flex items-center gap-2"><XCircle size={18} className="text-red-600"/> 錯誤三次淘汰</p>
+                                    </div>
+                                    <input type="text" placeholder="輸入你的名字" className="w-full p-3 border-4 border-stone-900 bg-stone-50 font-bold mb-4 focus:outline-none focus:border-yellow-500" value={studentName} onChange={(e) => setStudentName(e.target.value)} />
+                                    <button onClick={startGame} disabled={!studentName.trim()} className="w-full bg-stone-900 text-white font-black text-xl py-3 hover:bg-yellow-500 hover:text-black transition-all border-4 border-transparent disabled:opacity-50">開始挑戰</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {gameState === 'playing' && (
+                            <div className="flex flex-col h-full">
+                                <div className="flex-1 bg-stone-200/50 relative flex items-center justify-center p-2 min-h-0">
+                                    <div className="w-full h-full max-w-[320px] max-h-[500px]">
+                                        <MangaBackpack onZoneClick={handleZoneClick} onDrop={() => {}} onDragOver={() => {}} selectedZone={null} packedItems={packedItems} />
+                                    </div>
+                                </div>
+                                <div className="flex-none bg-white border-t-4 border-stone-900 p-2 z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                                    <div className="flex justify-between items-center mb-2 px-1">
+                                        <h3 className="text-sm font-black uppercase text-stone-500">待打包 ({items.length})</h3>
+                                        <span className="text-xs text-stone-400">點擊選取後，再點擊上方背包位置</span>
+                                    </div>
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 overflow-y-auto max-h-[160px] pb-4 px-1">
+                                        {items.map((item) => (
+                                            <div key={item.id} onClick={() => handleItemClick(item)} className={`aspect-square flex flex-col items-center justify-center p-1 border-2 border-stone-300 rounded cursor-pointer bg-white transition-all ${selectedItem?.id === item.id ? 'border-yellow-500 bg-yellow-50 ring-2 ring-yellow-300 scale-105 shadow-lg' : 'active:scale-95'}`}>
+                                                <div className="text-stone-800 mb-1 scale-75 sm:scale-100">{item.icon}</div>
+                                                <span className="text-[10px] leading-tight text-center font-bold text-stone-600 line-clamp-1">{item.name}</span>
+                                            </div>
+                                        ))}
+                                        {items.length === 0 && <div className="col-span-4 py-4 text-center text-stone-400 font-bold border-2 border-dashed border-stone-200 rounded"><CheckCircle className="mx-auto mb-1 w-6 h-6" />完成！</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {gameState === 'finished' && (
+                            <div className="absolute inset-0 z-30 bg-stone-100 flex items-center justify-center p-4">
+                                <div className="bg-white border-[6px] border-stone-900 p-6 w-full max-w-sm shadow-[12px_12px_0px_0px_rgba(28,25,23,1)] text-center">
+                                    <h2 className="text-4xl font-black text-stone-900 uppercase italic mb-2">Result</h2>
+                                    <div className="my-6 space-y-4">
+                                        <div className="text-xl font-bold">學員 <span className="underline decoration-4 decoration-yellow-400">{studentName}</span></div>
+                                        
+                                        {/* Score Display Breakdown */}
+                                        <div className="flex flex-col gap-2">
+                                             <div className="flex justify-between px-4 text-sm font-bold text-stone-500">
+                                                <span>基礎得分:</span>
+                                                <span>{score - timeBonus}</span>
+                                             </div>
+                                             {timeBonus > 0 && (
+                                                <div className="flex justify-between px-4 text-sm font-bold text-green-600">
+                                                    <span>時間紅利:</span>
+                                                    <span>+{timeBonus}</span>
+                                                </div>
+                                             )}
+                                             <div className="border-t-2 border-stone-200 my-1"></div>
+                                             <div className="flex justify-between px-4 text-xl font-black text-stone-900">
+                                                <span>總分:</span>
+                                                <span>{score}</span>
+                                             </div>
+                                        </div>
+
+                                        <div className="bg-stone-100 p-3 mx-4 border-2 border-stone-800 mt-2">
+                                            <div className="text-xs font-bold text-stone-500">RANK</div>
+                                            <div className={`text-3xl font-black ${getFeedback().color}`}>{getFeedback().rank}</div>
+                                            <div className="text-sm font-bold text-stone-600 mt-1">{getFeedback().title}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 mt-8">
+                                        <button onClick={startGame} className="flex-1 bg-white border-4 border-stone-900 py-3 font-bold hover:bg-stone-200 flex items-center justify-center gap-2"><RotateCcw size={20} /> 重來</button>
+                                        <button onClick={downloadCertificate} className="flex-1 bg-stone-900 text-white border-4 border-stone-900 py-3 font-bold hover:bg-yellow-500 hover:text-black flex items-center justify-center gap-2"><Download size={20} /> 證書</button>
+                                    </div>
+                                </div>
+                                <canvas ref={canvasRef} width="800" height="600" className="hidden-canvas"></canvas>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ScoutPackingGame />);
+    </script>
+</body>
+</html>
